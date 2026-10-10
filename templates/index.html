@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎄 Новогодний вишлист</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, 'Segoe UI', sans-serif;
+    background: 
+      linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.7)),
+      url('/static/stul.jpg') center/cover no-repeat fixed;
+    color: #fff; min-height: 100vh; padding: 16px;
+  }
+  .container { max-width: 700px; margin: 0 auto; }
+
+  header { text-align: center; margin-bottom: 24px; }
+  header img {
+    width: 100%; max-width: 500px; border-radius: 16px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.4); margin-bottom: 16px;
+  }
+  h1 {
+    font-size: 2em;
+    background: linear-gradient(90deg, #ffd700, #ff6b6b);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  header p { opacity: 0.7; margin-top: 6px; }
+
+  .card {
+    background: rgba(255,255,255,0.07);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 16px; padding: 16px; margin-bottom: 16px;
+  }
+
+  input {
+    width: 100%; padding: 14px; font-size: 16px;
+    border-radius: 10px; border: none; margin-bottom: 10px;
+    background: rgba(255,255,255,0.12); color: #fff;
+  }
+  input::placeholder { color: rgba(255,255,255,0.5); }
+
+  .artists {
+    display: flex; gap: 12px; overflow-x: auto;
+    margin: 12px 0; padding-bottom: 8px;
+  }
+  .artist {
+    flex-shrink: 0; text-align: center; cursor: pointer;
+    padding: 6px; border-radius: 12px;
+  }
+  .artist:hover { background: rgba(255,255,255,0.1); }
+  .artist img { width: 72px; height: 72px; border-radius: 50%; }
+  .artist span { display: block; font-size: 11px; margin-top: 4px; max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .track {
+    display: flex; align-items: center; gap: 12px;
+    padding: 8px; border-radius: 10px;
+  }
+  .track:hover { background: rgba(255,255,255,0.08); }
+  .track img { width: 48px; height: 48px; border-radius: 6px; }
+  .track-info { flex: 1; min-width: 0; }
+  .track-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .track-sub { font-size: 13px; opacity: 0.6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .add-btn {
+    background: #4ade80; color: #000; border: none;
+    padding: 8px 14px; border-radius: 8px; font-weight: bold;
+    cursor: pointer; font-size: 18px; flex-shrink: 0;
+    transition: all 0.3s ease;
+  }
+  .add-btn:active { transform: scale(0.95); }
+
+  /* Стиль для уже добавленного трека */
+  .add-btn.added {
+    background: #4ade80;
+    opacity: 0.5;
+    cursor: default;
+    pointer-events: none;
+  }
+
+  .section-title { font-size: 1.2em; margin-bottom: 12px; }
+
+  .wl-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 8px; background: rgba(255,255,255,0.05);
+    border-radius: 10px; margin-bottom: 8px;
+  }
+  .wl-item img { width: 48px; height: 48px; border-radius: 6px; }
+  .del-btn {
+    background: #ef4444; color: #fff; border: none;
+    padding: 6px 10px; border-radius: 6px; cursor: pointer;
+    font-size: 14px; flex-shrink: 0;
+  }
+  .empty { text-align: center; opacity: 0.4; padding: 20px; }
+  .label { font-size: 13px; opacity: 0.5; margin: 10px 0 4px; }
+
+  .show-more-btn {
+    width: 100%; margin-top: 10px; padding: 12px;
+    background: rgba(255,255,255,0.1); color: #fff;
+    border: 1px solid rgba(255,255,255,0.2); border-radius: 10px;
+    cursor: pointer; font-size: 14px;
+  }
+  .show-more-btn:hover { background: rgba(255,255,255,0.15); }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <img src="https://images.unsplash.com/photo-1512389142860-9c449e58a814?w=800" alt="Новый год">
+    <h1>🎄 НГ 2026 Сауна Нептун </h1>
+    <p>Добавляйте свои песенки без хуйни пж!</p>
+  </header>
+
+  <div class="card">
+    <input id="name" placeholder="✏️ Как тебя зовут?">
+    <input id="search" placeholder="🔍 Введи исполнителя или песню..." oninput="debounce()">
+    <div id="artists" class="artists"></div>
+    <div id="results"></div>
+  </div>
+
+  <div class="card">
+    <h2 class="section-title">🎁 Уже в списке</h2>
+    <div id="wishlist"></div>
+  </div>
+
+</div>
+
+<script>
+// Храним ID добавленных треков
+let addedTrackIds = new Set();
+
+let timer;
+function debounce() {
+  clearTimeout(timer);
+  timer = setTimeout(doSearch, 350);
+}
+
+async function doSearch() {
+  const q = document.getElementById('search').value.trim();
+  if (q.length < 2) {
+    document.getElementById('results').innerHTML = '';
+    document.getElementById('artists').innerHTML = '';
+    return;
+  }
+  const r = await fetch('/api/search?q=' + encodeURIComponent(q));
+  const d = await r.json();
+
+  document.getElementById('artists').innerHTML = d.artists.map(a =>
+    `<div class="artist" onclick="loadArtist(${a.id},'${a.name.replace(/'/g,"\\'")}')">
+      <img src="${a.picture}"><span>${a.name}</span>
+    </div>`
+  ).join('');
+
+  document.getElementById('results').innerHTML = d.tracks.map(trackCard).join('');
+}
+
+async function loadArtist(id, name) {
+  document.getElementById('results').innerHTML = '<p style="opacity:.5">Загрузка всех треков...</p>';
+  const r = await fetch('/api/artist/' + id + '/top');
+  const tracks = await r.json();
+
+  // Показываем первые 30 треков
+  const initialCount = 30;
+  const initialTracks = tracks.slice(0, initialCount);
+  const moreTracks = tracks.slice(initialCount);
+
+  let html = '<div class="label">Все треки: ' + name + ' (' + tracks.length + ')</div>';
+  html += initialTracks.map(trackCard).join('');
+
+  // Если есть ещё треки, добавляем кнопку
+  if (moreTracks.length > 0) {
+    html += `<button class="show-more-btn" onclick="showMoreTracks(this)" data-tracks='${JSON.stringify(moreTracks).replace(/'/g, "&#39;")}' style="width:100%;margin-top:10px;padding:12px;background:rgba(255,255,255,0.1);color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:10px;cursor:pointer;">Показать ещё ${moreTracks.length} треков</button>`;
+  }
+
+  document.getElementById('results').innerHTML = html;
+}
+
+function showMoreTracks(btn) {
+  const tracks = JSON.parse(btn.getAttribute('data-tracks').replace(/&#39;/g, "'"));
+  btn.remove(); // Убираем кнопку
+  document.getElementById('results').innerHTML += tracks.map(trackCard).join('');
+}
+
+function trackCard(t) {
+  const safe = JSON.stringify(t).replace(/'/g, '&#39;');
+  const isAdded = addedTrackIds.has(t.id);
+  const btnText = isAdded ? '✓' : '+';
+  const btnClass = isAdded ? 'add-btn added' : 'add-btn';
+  const btnOnclick = isAdded ? '' : `onclick='addSong(${safe})'`;
+
+  return `<div class="track" data-track-id="${t.id}">
+    <img src="${t.cover}">
+    <div class="track-info">
+      <div class="track-title">${t.title}</div>
+      <div class="track-sub">${t.artist} · ${t.album}</div>
+    </div>
+    <button class="${btnClass}" ${btnOnclick}>${btnText}</button>
+  </div>`;
+}
+
+async function addSong(t) {
+  const name = document.getElementById('name').value.trim() || 'Аноним';
+  await fetch('/api/wishlist', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      title: t.title, artist: t.artist,
+      album: t.album, cover: t.cover, added_by: name
+    })
+  });
+
+  // Добавляем ID в список добавленных
+  addedTrackIds.add(t.id);
+
+  // Меняем кнопку на галочку
+  const trackDiv = document.querySelector(`[data-track-id="${t.id}"]`);
+  if (trackDiv) {
+    const btn = trackDiv.querySelector('.add-btn');
+    btn.textContent = '✓';
+    btn.classList.add('added');
+    btn.onclick = null; // Убираем обработчик клика
+  }
+
+  loadWishlist();
+}
+
+async function loadWishlist() {
+  const r = await fetch('/api/wishlist');
+  const list = await r.json();
+  if (!list.length) {
+    document.getElementById('wishlist').innerHTML = '<div class="empty">Пока пусто — будь первым! 🎶</div>';
+    return;
+  }
+  document.getElementById('wishlist').innerHTML = list.map(s =>
+    `<div class="wl-item">
+      <img src="${s.cover_url}">
+      <div class="track-info">
+        <div class="track-title">${s.title}</div>
+        <div class="track-sub">${s.artist} · от ${s.added_by}</div>
+      </div>
+      <button class="del-btn" onclick="delSong(${s.id})">✕</button>
+    </div>`
+  ).join('');
+}
+
+async function delSong(id) {
+  await fetch('/api/wishlist/' + id, {method: 'DELETE'});
+  loadWishlist();
+}
+
+loadWishlist();
+setInterval(loadWishlist, 5000);
+</script>
+</body>
+</html>
